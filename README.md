@@ -1,1 +1,1 @@
-# api-app-deployment
+# EKS App Deployment Manifests
