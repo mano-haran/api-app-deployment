@@ -24,7 +24,7 @@ spec:
     spec:
       terminationGracePeriodSeconds: 30
       containers:
-        - image: manoharan150/simple-golang-api:latest
+        - image: manoharan150/simple-golang-api:0.0.2
           imagePullPolicy: IfNotPresent
           name: go-api
           ports:
