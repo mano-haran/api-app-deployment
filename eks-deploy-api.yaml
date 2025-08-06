@@ -10,37 +10,82 @@ kind: Deployment
 metadata:
   namespace: api-services
   name: go-api
+  labels:
+    app: go-api
 spec:
+  replicas: 2
   selector:
     matchLabels:
       name: go-api
-  replicas: 2
   template:
     metadata:
       labels:
         name: go-api
     spec:
+      terminationGracePeriodSeconds: 30
       containers:
-       - image: manoharan150/simple-golang-api:latest
-         imagePullPolicy: Always
-         name: go-api
-         ports:
-           - containerPort: 9000
-
+        - image: manoharan150/simple-golang-api:latest
+          imagePullPolicy: IfNotPresent
+          name: go-api
+          ports:
+            - containerPort: 9000
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 9000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 9000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: "kubernetes.io/hostname"
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - go-api
+      restartPolicy: Always
 ---
 apiVersion: v1
 kind: Service
 metadata:
   namespace: api-services
   name: go-api-service
+  labels:
+    app: go-api  
 spec:
+  selector:
+    name: go-api
   ports:
     - port: 80
       targetPort: 9000
       protocol: TCP
   type: NodePort
-  selector:
-    name: go-api
 
 ---
 apiVersion: networking.k8s.io/v1
@@ -51,6 +96,11 @@ metadata:
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/healthcheck-port: "80"
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/success-codes: "200"
 spec:
   ingressClassName: alb
   rules:
